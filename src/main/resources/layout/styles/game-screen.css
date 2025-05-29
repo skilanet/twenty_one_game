@@ -1,0 +1,23 @@
+#apRoot {
+    -fx-background-color: #006400;
+}
+
+.button {
+    -fx-font-size: 18px;
+    -fx-background-radius: 10.0;
+    -fx-border-width: 2.0;
+    -fx-border-radius: 8.0;
+    -fx-border-color: #073200;
+    -fx-background-color: rgba(97, 237, 39, 0.40);
+    -fx-text-fill: #000000;
+}
+
+.button:disabled {
+    -fx-font-size: 18px;
+    -fx-background-radius: 8.0;
+    -fx-border-width: 1.5;
+    -fx-border-radius: 8.0;
+    -fx-border-color: #959595;
+    -fx-background-color: rgba(74, 74, 74, 0.5);
+    -fx-text-fill: #c3c3c3;
+}
