@@ -20,9 +20,9 @@ public class NetworkGameManager {
     private Consumer<String> onInfo;
     private Consumer<String> onError;
     private Consumer<ConnectionStatus> onConnectionChanged;
+    private Consumer<OpponentCardsEventDto> onOpponentCards;
 
     private PlayerDto currentPlayer;
-    private PlayerDto opponent;
     private boolean isMyTurn = false;
 
     public NetworkGameManager() {
@@ -51,7 +51,6 @@ public class NetworkGameManager {
             // Находим противника
             for (PlayerDto player : gameState.getPlayers()) {
                 if (!player.getId().equals(currentPlayer.getId())) {
-                    opponent = player;
                     break;
                 }
             }
@@ -72,15 +71,15 @@ public class NetworkGameManager {
                 ));
             }
         } else if (event instanceof PlayerStoodEventDto stood) {
-
             if (onPlayerStood != null) {
+                isMyTurn = !stood.getPlayerId().equals(currentPlayer.getId());
                 onPlayerStood.accept(stood.getPlayerId());
             }
         } else if (event instanceof GameOverEventDto gameOver) {
 
             if (onGameOver != null) {
                 boolean didIWin = gameOver.getWinner() != null &&
-                        gameOver.getWinner().getId().equals(currentPlayer.getId());
+                        gameOver.getWinner().equals(currentPlayer.getId());
                 boolean isDraw = gameOver.getWinner() == null;
 
                 onGameOver.accept(new GameOverInfo(
@@ -98,15 +97,25 @@ public class NetworkGameManager {
             if (onError != null) {
                 onError.accept(error.getMessage());
             }
+        } else if (event instanceof AnotherPlayerTookCardEventDto) {
+            if (onCardDealt != null) {
+                onCardDealt.accept(new NetworkCardDealt(
+                        "",
+                        null,
+                        false
+                ));
+            }
+        } else if (event instanceof OpponentCardsEventDto opponentCardsEventDto) {
+            if (onOpponentCards != null) {
+                onOpponentCards.accept(opponentCardsEventDto);
+            }
+
         }
     }
 
     public CompletableFuture<Void> connect(String playerName) {
         return client.connect()
-                .thenRun(() -> {
-                    System.out.println("Подключение установлено, отправляем Join команду");
-                    client.joinGame(playerName);
-                })
+                .thenRun(() -> client.joinGame(playerName))
                 .exceptionally(throwable -> {
                     System.err.println("Ошибка при подключении: " + throwable.getMessage());
                     throw new RuntimeException(throwable);
@@ -129,9 +138,6 @@ public class NetworkGameManager {
         client.disconnect();
     }
 
-    public boolean isConnected() {
-        return client.isConnected();
-    }
 
     public boolean isMyTurn() {
         return isMyTurn;
@@ -141,9 +147,6 @@ public class NetworkGameManager {
         return currentPlayer;
     }
 
-    public PlayerDto getOpponent() {
-        return opponent;
-    }
 
     // Setters for callbacks
     public void setOnPlayerJoined(Consumer<PlayerDto> onPlayerJoined) {
@@ -178,11 +181,15 @@ public class NetworkGameManager {
         this.onConnectionChanged = onConnectionChanged;
     }
 
+    public void setOnOpponentCards(Consumer<OpponentCardsEventDto> onOpponentCards) {
+        this.onOpponentCards = onOpponentCards;
+    }
+
     // Helper classes
     public record NetworkCardDealt(String playerId, CardDto card, boolean isForCurrentPlayer) {
     }
 
-    public record GameOverInfo(boolean didIWin, boolean isDraw, PlayerDto winner, GameStateDto finalState) {
+    public record GameOverInfo(boolean didIWin, boolean isDraw, String winner, GameStateDto finalState) {
     }
 
     public record ConnectionStatus(boolean connected, String message) {

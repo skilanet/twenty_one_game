@@ -1,5 +1,6 @@
 package ru.sergey.dev.twenty_one_game.presentation;
 
+import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -59,33 +60,48 @@ public class StartScreenController implements Initializable {
 
         dialog.setOnConnect(playerName -> {
             System.out.println("Начинаем подключение для игрока: " + playerName);
-            setupAndPlayMusic();
 
-            // Создаем игровой экран в UI потоке
-            try {
-                FXMLLoader loader = new FXMLLoader(getClass().getResource("/layout/game-screen.fxml"));
-                Parent gameRoot = loader.load();
+            // Настраиваем NetworkTwentyOneGame для отслеживания старта игры
+            NetworkTwentyOneGame networkGame = NetworkTwentyOneGame.getInstance();
 
-                TwentyOneGameController controller = loader.getController();
-                controller.setNetworkMode(true);
+            // Устанавливаем callback на начало игры
+            networkGame.setOnGameStartCallback(() -> Platform.runLater(() -> {
+                try {
+                    setupAndPlayMusic();
 
-                // Переключаем сцену
-                Stage stage = (Stage) networkButton.getScene().getWindow();
-                Scene gameScene = new Scene(gameRoot, Size.WIDTH, Size.HEIGHT);
-                stage.setScene(gameScene);
-                stage.setTitle("Игра '21' - Сетевая игра");
-                stage.show();
+                    // Закрываем диалог подключения
+                    dialog.close();
 
-                // Начинаем подключение после переключения сцены
-                controller.connectToNetwork(playerName, dialog);
+                    // Создаем игровой экран
+                    FXMLLoader loader = new FXMLLoader(getClass().getResource("/layout/game-screen.fxml"));
+                    Parent gameRoot = loader.load();
 
-            } catch (IOException e) {
-                dialog.close();
-                showError("Ошибка при загрузке игрового экрана: " + e.getMessage());
-            }
+                    TwentyOneGameController controller = loader.getController();
+                    controller.setNetworkMode(true);
+
+                    // Переключаем сцену
+                    Stage stage = (Stage) networkButton.getScene().getWindow();
+                    Scene gameScene = new Scene(gameRoot, Size.WIDTH, Size.HEIGHT);
+                    stage.setScene(gameScene);
+                    stage.setTitle("Игра '21' - Сетевая игра");
+                    stage.show();
+
+                } catch (IOException e) {
+                    dialog.close();
+                    showError("Ошибка при загрузке игрового экрана: " + e.getMessage());
+                    networkGame.disconnect();
+                }
+            }));
+
+            // Начинаем подключение (не переключаем сцену)
+            networkGame.connectToNetwork(playerName, dialog);
         });
 
-        dialog.setOnCancel(() -> System.out.println("Подключение отменено"));
+        dialog.setOnCancel(() -> {
+            System.out.println("Подключение отменено");
+            // Сбрасываем callback
+            NetworkTwentyOneGame.getInstance().setOnGameStartCallback(null);
+        });
 
         dialog.show();
     }

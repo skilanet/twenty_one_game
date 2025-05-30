@@ -26,7 +26,6 @@ public class BlackjackWebSocketClient {
     private ConnectionHandler connectionHandler;
     private ErrorHandler errorHandler;
     private String currentPlayerId;
-    private String currentGameId;
     private final AtomicBoolean isConnected = new AtomicBoolean(false);
     private HttpClient httpClient;
 
@@ -129,18 +128,6 @@ public class BlackjackWebSocketClient {
         }
     }
 
-    public String getCurrentPlayerId() {
-        return currentPlayerId;
-    }
-
-    public String getCurrentGameId() {
-        return currentGameId;
-    }
-
-    public boolean isConnected() {
-        return isConnected.get();
-    }
-
     private class WebSocketListener implements WebSocket.Listener {
         private final StringBuilder messageBuffer = new StringBuilder();
 
@@ -158,7 +145,7 @@ public class BlackjackWebSocketClient {
                 String message = messageBuffer.toString();
                 messageBuffer.setLength(0);
 
-                System.out.println("Получено сообщение: " + message);
+                System.out.println("Получено сообщение: \n" + message);
 
                 try {
                     GameEventDto event = gson.fromJson(message, GameEventDto.class);
@@ -205,25 +192,9 @@ public class BlackjackWebSocketClient {
     }
 
     private void handleGameEvent(GameEventDto event) {
-        System.out.println("Обрабатываем событие: " + event.getClass().getSimpleName());
-
-        switch (event) {
-            case PlayerJoinedEventDto joined -> {
-                currentPlayerId = joined.getPlayer().getId();
-                currentGameId = joined.getGameId();
-                System.out.println("Присоединились к игре. Player ID: " + currentPlayerId + ", Game ID: " + currentGameId);
-            }
-            case GameStartedEventDto started -> {
-                System.out.println("Игра началась! Игроков: " + started.getGameState().getPlayers().size());
-                System.out.println("Текущий игрок: " + started.getGameState().getCurrentPlayerId());
-            }
-            case CardDealtEventDto cardDealt ->
-                    System.out.println("Карта выдана игроку " + cardDealt.getPlayerId() + ": " + cardDealt.getCard());
-            case ErrorEventDto error -> System.err.println("Ошибка от сервера: " + error.getMessage());
-            case InfoEventDto info -> System.out.println("Информация от сервера: " + info.getMessage());
-            default -> {}
+        if (event instanceof PlayerJoinedEventDto joined) {
+            this.currentPlayerId = joined.getPlayer().getId();
         }
-
         if (gameEventHandler != null) {
             gameEventHandler.handleEvent(event);
         }
@@ -249,7 +220,6 @@ public class BlackjackWebSocketClient {
             }
 
             String type = jsonObject.get("type").getAsString();
-            System.out.println("Десериализуем событие типа: " + type);
 
             return switch (type) {
                 case "PlayerJoined" -> context.deserialize(json, PlayerJoinedEventDto.class);
@@ -259,6 +229,8 @@ public class BlackjackWebSocketClient {
                 case "GameOver" -> context.deserialize(json, GameOverEventDto.class);
                 case "Error" -> context.deserialize(json, ErrorEventDto.class);
                 case "Info" -> context.deserialize(json, InfoEventDto.class);
+                case "AnotherPlayerTookCard" -> context.deserialize(json, AnotherPlayerTookCardEventDto.class);
+                case "OpponentCards" -> context.deserialize(json, OpponentCardsEventDto.class);
                 default -> {
                     System.err.println("Неизвестный тип события: " + type);
                     throw new JsonParseException("Неизвестный тип события: " + type);

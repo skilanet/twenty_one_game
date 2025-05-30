@@ -7,6 +7,7 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.HBox;
 import ru.sergey.dev.twenty_one_game.model.dto.CardDto;
+import ru.sergey.dev.twenty_one_game.model.dto.GameStateDto;
 import ru.sergey.dev.twenty_one_game.model.dto.PlayerDto;
 import ru.sergey.dev.twenty_one_game.model.network.NetworkGameManager;
 
@@ -34,6 +35,8 @@ public class NetworkTwentyOneGame {
     private Consumer<Boolean> onButtonsStateChanged;
     private Runnable onGameEnded;
     private Consumer<GameResult> onGameResult;
+    private Runnable onGameStartCallback;
+    private GameStateDto gameStateDto;
 
     private NetworkTwentyOneGame() {}
 
@@ -71,128 +74,6 @@ public class NetworkTwentyOneGame {
         AnchorPane.setRightAnchor(gameStatusLabel, 10.0);
 
         apRoot.getChildren().addAll(opponentNameLabel, gameStatusLabel);
-    }
-
-    public void connectToNetwork(String playerName, NetworkGameDialog dialog) {
-        System.out.println("NetworkTwentyOneGame: начинаем подключение для " + playerName);
-
-        networkManager = new NetworkGameManager();
-        setupNetworkCallbacks(dialog);
-
-        CompletableFuture.runAsync(() -> {
-            try {
-                networkManager.connect(playerName)
-                        .thenRun(() -> Platform.runLater(() -> dialog.updateStatus("Поиск игры...")))
-                        .get();
-            } catch (Exception e) {
-                Platform.runLater(() -> {
-                    dialog.showError("Ошибка подключения: " + e.getMessage());
-                    if (onGameEnded != null) {
-                        onGameEnded.run();
-                    }
-                });
-            }
-        });
-    }
-
-    private void setupNetworkCallbacks(NetworkGameDialog dialog) {
-        networkManager.setOnPlayerJoined(player -> dialog.updateStatus("Ожидание других игроков..."));
-
-        networkManager.setOnGameStarted(gameState -> {
-            dialog.close();
-            isGameStarted = true;
-
-            // Находим противника
-            for (PlayerDto player : gameState.getPlayers()) {
-                if (!player.getId().equals(networkManager.getCurrentPlayer().getId())) {
-                    opponentName = player.getName();
-                    opponentNameLabel.setText("Противник: " + opponentName);
-                    opponentNameLabel.setVisible(true);
-                    break;
-                }
-            }
-
-            gameStatusLabel.setVisible(true);
-            updateGameStatus();
-
-            // Очищаем поле
-            hboxUserCards.getChildren().clear();
-            hboxOpponentCards.getChildren().clear();
-
-            // Обновляем счет из состояния игры
-            for (PlayerDto player : gameState.getPlayers()) {
-                if (player.getId().equals(networkManager.getCurrentPlayer().getId())) {
-                    myScore = player.getScore();
-                    totalScores.setText("Текущее количество очков: " + myScore);
-
-                    if (player.getHand() != null && !player.getHand().isEmpty()) {
-                        for (CardDto card : player.getHand()) {
-                            addCardToHand(hboxUserCards, card, false);
-                        }
-                    }
-                } else {
-                    opponentScore = player.getScore();
-
-                    for (int i = 0; i < 2; i++) {
-                        addCardToHand(hboxOpponentCards, null, true);
-                    }
-                }
-            }
-        });
-
-        networkManager.setOnCardDealt(cardDealt -> {
-            if (cardDealt.isForCurrentPlayer()) {
-                addCardToHand(hboxUserCards, cardDealt.card(), false);
-                myScore += cardDealt.card().getPrice();
-                totalScores.setText("Текущее количество очков: " + myScore);
-            } else {
-                addCardToHand(hboxOpponentCards, null, true);
-            }
-        });
-
-        networkManager.setOnPlayerStood(playerId -> updateGameStatus());
-
-        networkManager.setOnGameOver(gameOver -> {
-            isGameStarted = false;
-            if (onButtonsStateChanged != null) {
-                onButtonsStateChanged.accept(true);
-            }
-
-            // Показываем карты противника
-            hboxOpponentCards.getChildren().clear();
-            if (gameOver.finalState() != null) {
-                for (PlayerDto player : gameOver.finalState().getPlayers()) {
-                    if (!player.getId().equals(networkManager.getCurrentPlayer().getId())) {
-                        for (CardDto card : player.getHand()) {
-                            addCardToHand(hboxOpponentCards, card, false);
-                        }
-                        opponentScore = player.getScore();
-                    } else {
-                        myScore = player.getScore();
-                    }
-                }
-            }
-
-            if (onGameResult != null) {
-                onGameResult.accept(new GameResult(gameOver.didIWin(), gameOver.isDraw(), myScore, opponentScore));
-            }
-        });
-
-        networkManager.setOnInfo(info -> gameStatusLabel.setText(info));
-
-        networkManager.setOnError(error -> {
-            gameStatusLabel.setText("Ошибка: " + error);
-            gameStatusLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: #ff0000;");
-        });
-
-        networkManager.setOnConnectionChanged(status -> {
-            if (!status.connected() && isGameStarted) {
-                gameStatusLabel.setText("Соединение потеряно");
-                if (onButtonsStateChanged != null) {
-                    onButtonsStateChanged.accept(true);
-                }
-            }
-        });
     }
 
     private void updateGameStatus() {
@@ -256,6 +137,173 @@ public class NetworkTwentyOneGame {
         }
         if (gameStatusLabel != null) {
             gameStatusLabel.setVisible(false);
+        }
+    }
+
+    // Новый метод для установки callback на начало игры
+    public void setOnGameStartCallback(Runnable callback) {
+        this.onGameStartCallback = callback;
+    }
+
+    // Модифицированный метод connectToNetwork - убираем переключение сцены
+    public void connectToNetwork(String playerName, NetworkGameDialog dialog) {
+        System.out.println("NetworkTwentyOneGame: начинаем подключение для " + playerName);
+
+        networkManager = new NetworkGameManager();
+        setupNetworkCallbacks(dialog);
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                networkManager.connect(playerName)
+                        .thenRun(() -> Platform.runLater(() -> dialog.updateStatus("Поиск игры...")))
+                        .get();
+            } catch (Exception e) {
+                Platform.runLater(() -> {
+                    dialog.showError("Ошибка подключения: " + e.getMessage());
+                    if (onGameEnded != null) {
+                        onGameEnded.run();
+                    }
+                });
+            }
+        });
+    }
+
+    private void setupNetworkCallbacks(NetworkGameDialog dialog) {
+        networkManager.setOnPlayerJoined(player -> dialog.updateStatus("Ожидание других игроков..."));
+
+        networkManager.setOnGameStarted(gameState -> {
+
+            isGameStarted = true;
+
+            // Находим противника
+            for (PlayerDto player : gameState.getPlayers()) {
+                if (!player.getId().equals(networkManager.getCurrentPlayer().getId())) {
+                    opponentName = player.getName();
+                    break;
+                }
+            }
+
+            // Вызываем callback для переключения сцены
+            if (onGameStartCallback != null) {
+                onGameStartCallback.run();
+            }
+
+            this.gameStateDto = gameState;
+
+            // Остальная логика инициализации игры будет выполнена после переключения сцены
+            // через метод initializeGameUI()
+        });
+
+        networkManager.setOnCardDealt(cardDealt -> {
+            if (cardDealt.isForCurrentPlayer()) {
+                addCardToHand(hboxUserCards, cardDealt.card(), false);
+                myScore += cardDealt.card().getPrice();
+                totalScores.setText("Текущее количество очков: " + myScore);
+                if (myScore > 21) {
+                    networkManager.stand();
+                    onButtonsStateChanged.accept(false);
+                }
+            } else {
+                addCardToHand(hboxOpponentCards, null, true);
+            }
+        });
+
+        networkManager.setOnPlayerStood(playerId -> Platform.runLater(this::updateGameStatus));
+
+        networkManager.setOnGameOver(gameOver -> {
+            isGameStarted = false;
+            if (onButtonsStateChanged != null) {
+                onButtonsStateChanged.accept(true);
+            }
+
+            // Показываем карты противника
+            hboxOpponentCards.getChildren().clear();
+            if (gameOver.finalState() != null) {
+                for (PlayerDto player : gameOver.finalState().getPlayers()) {
+                    if (!player.getId().equals(networkManager.getCurrentPlayer().getId())) {
+                        for (CardDto card : player.getHand()) {
+                            addCardToHand(hboxOpponentCards, card, false);
+                        }
+                        opponentScore = player.getScore();
+                    } else {
+                        myScore = player.getScore();
+                    }
+                }
+            }
+
+            if (onGameResult != null) {
+                onGameResult.accept(new GameResult(gameOver.didIWin(), gameOver.isDraw(), myScore, opponentScore));
+            }
+        });
+
+        networkManager.setOnInfo(info -> {
+            if (gameStatusLabel != null) {
+                gameStatusLabel.setText(info);
+            }
+        });
+
+        networkManager.setOnError(error -> {
+            if (dialog != null && !dialog.isCancelled()) {
+                dialog.showError("Ошибка: " + error);
+            } else if (gameStatusLabel != null) {
+                gameStatusLabel.setText("Ошибка: " + error);
+                gameStatusLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: #ff0000;");
+            }
+        });
+
+        networkManager.setOnConnectionChanged(status -> {
+            if (!status.connected() && isGameStarted) {
+                if (gameStatusLabel != null) {
+                    gameStatusLabel.setText("Соединение потеряно");
+                }
+                if (onButtonsStateChanged != null) {
+                    onButtonsStateChanged.accept(true);
+                }
+            }
+        });
+
+        networkManager.setOnOpponentCards(cards -> {
+            hboxOpponentCards.getChildren().clear();
+            for (CardDto card : cards.getCards()) {
+                addCardToHand(hboxOpponentCards, card, false);
+            }
+        });
+    }
+
+    // Новый метод для инициализации UI после переключения сцены
+    public void initializeGameUI() {
+        if (opponentNameLabel != null) {
+            opponentNameLabel.setText("Противник: " + opponentName);
+            opponentNameLabel.setVisible(true);
+        }
+
+        if (gameStatusLabel != null) {
+            gameStatusLabel.setVisible(true);
+            updateGameStatus();
+        }
+
+        // Очищаем поле
+        if (hboxUserCards != null) {
+            hboxUserCards.getChildren().clear();
+        }
+        if (hboxOpponentCards != null) {
+            hboxOpponentCards.getChildren().clear();
+        }
+
+        if (gameStateDto != null) {
+            for (PlayerDto player : gameStateDto.getPlayers()) {
+                if (player.getId().equals(networkManager.getCurrentPlayer().getId())) {
+                    myScore = player.getScore();
+                    totalScores.setText("Текущее количество очков: " + myScore);
+                    for (CardDto card : player.getHand()) {
+                        addCardToHand(hboxUserCards, card, false);
+                    }
+                } else {
+                    for (int i = 0; i < player.getCards_in_hand(); i++) {
+                        addCardToHand(hboxOpponentCards, null, true);
+                    }
+                }
+            }
         }
     }
 

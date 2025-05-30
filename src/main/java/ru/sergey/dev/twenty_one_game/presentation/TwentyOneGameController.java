@@ -55,7 +55,6 @@ public class TwentyOneGameController implements Initializable {
         if (MediaPlayerController.isMediaPlayerNotNull()) {
             setupImage(imageStopMusic, 32.0, "/images/stop_music.png");
         }
-
         initializeGameModes();
     }
 
@@ -81,17 +80,6 @@ public class TwentyOneGameController implements Initializable {
                 this::changeButtonsDisabling,
                 this::handleGameResult
         );
-    }
-
-    public void setNetworkMode(boolean networkMode) {
-        this.isNetworkMode = networkMode;
-        if (!networkMode) {
-            aiGame.startGame();
-        }
-    }
-
-    public void connectToNetwork(String playerName, NetworkGameDialog dialog) {
-        networkGame.connectToNetwork(playerName, dialog);
     }
 
     private void handleGameResult(Object result) {
@@ -238,6 +226,26 @@ public class TwentyOneGameController implements Initializable {
             } else {
                 MediaPlayerController.play();
             }
+        }
+    }
+
+    public void setNetworkMode(boolean networkMode) {
+        this.isNetworkMode = networkMode;
+        if (!networkMode) {
+            aiGame.startGame();
+        } else {
+            NetworkTwentyOneGame networkGame = NetworkTwentyOneGame.getInstance();
+            networkGame.initialize(
+                    hboxUserCards,
+                    hboxOpponentCards,
+                    totalScores,
+                    apRoot,
+                    this::changeButtonsDisabling,
+                    this::returnToMainMenu,
+                    this::handleGameResult
+            );
+
+            networkGame.initializeGameUI();
         }
     }
 }
