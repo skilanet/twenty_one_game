@@ -23,6 +23,8 @@
 
     <Button fx:id="startButton" text="Начать игру" onAction="#startGame"/>
 
+    <Button fx:id="networkButton" text="Сетевая игра" onAction="#startNetworkGame"/>
+
     <Button text="Правила" onAction="#showRules"/>
 
     <Button fx:id="exitButton" text="Выход" onAction="#exitGame"/>

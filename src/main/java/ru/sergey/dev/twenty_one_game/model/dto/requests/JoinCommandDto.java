@@ -1,10 +1,12 @@
 package ru.sergey.dev.twenty_one_game.model.dto.requests;
 
+import com.google.gson.annotations.SerializedName;
 
-public class JoinCommand extends PlayerCommand{
+public class JoinCommandDto extends PlayerCommandDto {
+    @SerializedName("playerName")
     private final String playerName;
 
-    public JoinCommand(String playerName){
+    public JoinCommandDto(String playerName) {
         super("Join");
         this.playerName = playerName;
     }

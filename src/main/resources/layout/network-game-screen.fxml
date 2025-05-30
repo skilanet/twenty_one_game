@@ -5,45 +5,62 @@
 <?import javafx.scene.image.*?>
 <?import javafx.scene.layout.*?>
 
-<AnchorPane fx:id="apRoot" maxHeight="-Infinity" maxWidth="-Infinity" onKeyPressed="#onNewGameButtonClick" prefHeight="450.0" prefWidth="800.0" stylesheets="@styles/game-screen.css" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="ru.sergey.dev.twenty_one_game.presentation.TwentyOneGameController">
+<AnchorPane fx:id="apRoot" maxHeight="-Infinity" maxWidth="-Infinity" prefHeight="450.0" prefWidth="800.0" stylesheets="@styles/game-screen.css" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="ru.sergey.dev.twenty_one_game.presentation.NetworkTwentyOneGameController">
 
     <!-- Информация о сопернике -->
     <VBox spacing="8.0" AnchorPane.leftAnchor="24.0" AnchorPane.topAnchor="16.0">
-        <Label fx:id="opponentNameLabel" style="-fx-font-size: 14.0; -fx-font-weight: bold; -fx-text-fill: #71ea71" text="Дилер" visible="false"/>
+        <Label fx:id="opponentNameLabel" style="-fx-font-size: 14.0; -fx-font-weight: bold; -fx-text-fill: #71ea71" text="Соперник: Ожидание..." />
         <HBox fx:id="hboxOpponentCards" prefHeight="100.0" prefWidth="200.0" spacing="8" />
     </VBox>
 
-    <!-- Статус игры (для сетевой игры) -->
-    <Label fx:id="gameStatusLabel" style="-fx-font-size: 16.0; -fx-font-weight: bold; -fx-text-fill: #ffffff; -fx-background-color: rgba(0,0,0,0.7); -fx-padding: 10; -fx-background-radius: 5;"
-           text="Статус игры" AnchorPane.topAnchor="16.0" AnchorPane.rightAnchor="200.0" visible="false"/>
+    <!-- Статус игры -->
+    <Label fx:id="gameStatusLabel" style="-fx-font-size: 16.0; -fx-font-weight: bold; -fx-text-fill: #ffffff; -fx-background-color: rgba(0,0,0,0.5); -fx-padding: 10;"
+           text="Подключение к серверу..." AnchorPane.topAnchor="16.0" AnchorPane.rightAnchor="200.0" />
 
     <!-- Информация об игроке -->
     <VBox spacing="8.0" AnchorPane.bottomAnchor="16.0" AnchorPane.leftAnchor="24.0">
+        <Label fx:id="playerNameLabel" style="-fx-font-size: 14.0; -fx-font-weight: bold; -fx-text-fill: #71ea71" text="Вы: " />
         <Label fx:id="totalScores" style="-fx-font-size: 16.0; -fx-font-weight: bold; -fx-text-fill: #71ea71" text="Текущее количество очков: 0" />
         <HBox fx:id="hboxUserCards" prefHeight="100.0" prefWidth="200.0" spacing="24.0" />
     </VBox>
 
     <!-- Колода и кнопки управления -->
-    <HBox fx:id="hboxDeckWithControllers" layoutX="386.0" layoutY="150.0" prefHeight="200.0" prefWidth="300.0" spacing="16.0" AnchorPane.rightAnchor="10.0">
+    <HBox fx:id="hboxDeckWithControllers" layoutX="386.0" layoutY="150.0" prefHeight="200.0" prefWidth="320.0" spacing="16.0" AnchorPane.rightAnchor="10.0">
         <ImageView fx:id="imageDeck" fitHeight="200.0" fitWidth="160.0" onMouseClicked="#onDeckImageViewClicked" preserveRatio="true">
         </ImageView>
-        <VBox alignment="CENTER" layoutX="494.0" layoutY="150.0" prefHeight="117.0" spacing="8" minWidth="120.0">
+
+        <VBox alignment="CENTER" layoutX="494.0" layoutY="150.0" prefHeight="117.0" spacing="8" minWidth="140.0">
+            <Button fx:id="buttonStartGame" contentDisplay="CENTER" onAction="#onStartGameButtonClick" text="Начать игру" maxWidth="Infinity"
+                    style="-fx-background-color: #4CAF50; -fx-text-fill: white;">
+                <padding>
+                    <Insets bottom="8.0" left="16.0" right="16.0" top="8.0" />
+                </padding>
+            </Button>
+
             <Button fx:id="buttonTakeCard" contentDisplay="CENTER" onAction="#onGetCardButtonClick" text="Взять карту" maxWidth="Infinity">
                 <VBox.margin>
                     <Insets />
                 </VBox.margin>
                 <padding>
                     <Insets bottom="8.0" left="16.0" right="16.0" top="8.0" />
-                </padding></Button>
+                </padding>
+            </Button>
+
             <Button fx:id="buttonFinish" contentDisplay="CENTER" onAction="#onStandButtonClick" text="Завершить" maxWidth="Infinity">
                 <padding>
                     <Insets bottom="8.0" left="16.0" right="16.0" top="8.0" />
-                </padding></Button>
+                </padding>
+            </Button>
+
             <Button contentDisplay="CENTER" text="Правила" maxWidth="Infinity">
                 <padding>
                     <Insets bottom="8.0" left="16.0" right="16.0" top="8.0" />
-                </padding></Button>
+                </padding>
+            </Button>
         </VBox>
     </HBox>
+
+    <!-- Кнопка управления музыкой -->
     <ImageView fx:id="imageStopMusic" AnchorPane.bottomAnchor="24.0" AnchorPane.rightAnchor="24.0" onMouseClicked="#onStopMusicImageClicked"/>
+
 </AnchorPane>

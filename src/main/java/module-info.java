@@ -10,7 +10,9 @@ module ru.sergey.dev.twenty_one_game {
 
     exports ru.sergey.dev.twenty_one_game.network.functional_interfaces;
     exports ru.sergey.dev.twenty_one_game.model.dto.response;
-
+    exports ru.sergey.dev.twenty_one_game.model.dto.requests;
+    exports ru.sergey.dev.twenty_one_game.model.dto;
+    exports ru.sergey.dev.twenty_one_game.model.network;
 
     exports ru.sergey.dev.twenty_one_game.presentation;
     opens ru.sergey.dev.twenty_one_game.presentation to javafx.fxml;
@@ -24,6 +26,9 @@ module ru.sergey.dev.twenty_one_game {
     opens ru.sergey.dev.twenty_one_game.model.mediaplayer to javafx.fxml;
     exports ru.sergey.dev.twenty_one_game.network;
     opens ru.sergey.dev.twenty_one_game.network to javafx.fxml;
-    exports ru.sergey.dev.twenty_one_game.model.dto.requests;
-    opens ru.sergey.dev.twenty_one_game.model.dto.requests to com.google.gson;
+
+    // Открываем для GSON с рефлексией
+    opens ru.sergey.dev.twenty_one_game.model.dto to com.google.gson, java.base;
+    opens ru.sergey.dev.twenty_one_game.model.dto.requests to com.google.gson, java.base;
+    opens ru.sergey.dev.twenty_one_game.model.dto.response to com.google.gson, java.base;
 }
