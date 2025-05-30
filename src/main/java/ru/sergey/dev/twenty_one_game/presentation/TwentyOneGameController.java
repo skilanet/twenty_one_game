@@ -1,8 +1,5 @@
 package ru.sergey.dev.twenty_one_game.presentation;
 
-import javafx.animation.KeyFrame;
-import javafx.animation.Timeline;
-import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -20,21 +17,13 @@ import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.HBox;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
-import javafx.util.Duration;
-import ru.sergey.dev.twenty_one_game.model.blackjack.BlackJackAI;
-import ru.sergey.dev.twenty_one_game.model.blackjack.BlackJackPlayer;
-import ru.sergey.dev.twenty_one_game.model.cards.Deck;
-import ru.sergey.dev.twenty_one_game.model.dto.CardDto;
-import ru.sergey.dev.twenty_one_game.model.dto.PlayerDto;
 import ru.sergey.dev.twenty_one_game.model.mediaplayer.MediaPlayerController;
-import ru.sergey.dev.twenty_one_game.model.network.NetworkGameManager;
 import ru.sergey.dev.twenty_one_game.ui.Size;
 
 import java.io.IOException;
 import java.net.URL;
 import java.util.Objects;
 import java.util.ResourceBundle;
-import java.util.concurrent.CompletableFuture;
 
 public class TwentyOneGameController implements Initializable {
 
@@ -54,23 +43,9 @@ public class TwentyOneGameController implements Initializable {
     @FXML
     private HBox hboxDeckWithControllers;
 
-    @FXML
-    private Label opponentNameLabel;
-    @FXML
-    private Label gameStatusLabel;
-
-    private Deck deck;
-    private BlackJackPlayer blackJackPlayer;
-    private BlackJackAI blackJackAI;
-    private boolean gameEnded = false;
-
-    // Network game fields
     private boolean isNetworkMode = false;
-    private NetworkGameManager networkManager;
-    private boolean isGameStarted = false;
-    private int myScore = 0;
-    private int opponentScore = 0;
-    private String opponentName = "";
+    private NetworkTwentyOneGame networkGame;
+    private AITwentyOneGame aiGame;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
@@ -81,178 +56,56 @@ public class TwentyOneGameController implements Initializable {
             setupImage(imageStopMusic, 32.0, "/images/stop_music.png");
         }
 
-        // Добавляем метки для сетевой игры
-        setupNetworkLabels();
+        initializeGameModes();
     }
 
-    private void setupNetworkLabels() {
-        // Создаем метки для отображения имени противника и статуса игры
-        opponentNameLabel = new Label("");
-        opponentNameLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #71ea71;");
-        opponentNameLabel.setVisible(false);
-        AnchorPane.setTopAnchor(opponentNameLabel, 5.0);
-        AnchorPane.setLeftAnchor(opponentNameLabel, hboxOpponentCards.getLayoutX());
+    private void initializeGameModes() {
+        // Инициализируем сетевую игру
+        networkGame = NetworkTwentyOneGame.getInstance();
+        networkGame.initialize(
+                hboxUserCards,
+                hboxOpponentCards,
+                totalScores,
+                apRoot,
+                this::changeButtonsDisabling,
+                this::returnToMainMenu,
+                this::handleGameResult
+        );
 
-        gameStatusLabel = new Label("");
-        gameStatusLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: #71ea71;");
-        gameStatusLabel.setVisible(false);
-        AnchorPane.setTopAnchor(gameStatusLabel, 30.0);
-        AnchorPane.setRightAnchor(gameStatusLabel, 10.0);
-
-        apRoot.getChildren().addAll(opponentNameLabel, gameStatusLabel);
+        // Инициализируем игру с ИИ
+        aiGame = AITwentyOneGame.getInstance();
+        aiGame.initialize(
+                hboxUserCards,
+                hboxOpponentCards,
+                totalScores,
+                this::changeButtonsDisabling,
+                this::handleGameResult
+        );
     }
 
     public void setNetworkMode(boolean networkMode) {
         this.isNetworkMode = networkMode;
         if (!networkMode) {
-            startGame();
+            aiGame.startGame();
         }
     }
 
     public void connectToNetwork(String playerName, NetworkGameDialog dialog) {
-        System.out.println("TwentyOneGameController: начинаем подключение для " + playerName);
-
-        networkManager = new NetworkGameManager();
-        setupNetworkCallbacks(dialog);
-
-        // Подключаемся в фоновом потоке
-        CompletableFuture.runAsync(() -> {
-            try {
-                networkManager.connect(playerName)
-                        .thenRun(() -> {
-                            Platform.runLater(() -> dialog.updateStatus("Поиск игры..."));
-                        })
-                        .get(); // Ждем завершения подключения
-            } catch (Exception e) {
-                Platform.runLater(() -> {
-                    dialog.showError("Ошибка подключения: " + e.getMessage());
-                    // Возвращаемся в главное меню при ошибке
-                    returnToMainMenu();
-                });
-            }
-        });
+        networkGame.connectToNetwork(playerName, dialog);
     }
 
-    private void setupNetworkCallbacks(NetworkGameDialog dialog) {
-        networkManager.setOnPlayerJoined(player -> dialog.updateStatus("Ожидание других игроков..."));
-
-        networkManager.setOnGameStarted(gameState -> {
-            dialog.close();
-            isGameStarted = true;
-
-            // Находим противника
-            for (PlayerDto player : gameState.getPlayers()) {
-                if (!player.getId().equals(networkManager.getCurrentPlayer().getId())) {
-                    opponentName = player.getName();
-                    opponentNameLabel.setText("Противник: " + opponentName);
-                    opponentNameLabel.setVisible(true);
-                    break;
-                }
-            }
-
-            gameStatusLabel.setVisible(true);
-            updateGameStatus();
-
-            // Очищаем поле
-            hboxUserCards.getChildren().clear();
-            hboxOpponentCards.getChildren().clear();
-
-            // Обновляем счет из состояния игры
-            for (PlayerDto player : gameState.getPlayers()) {
-                if (player.getId().equals(networkManager.getCurrentPlayer().getId())) {
-                    myScore = player.getScore();
-                    totalScores.setText("Текущее количество очков: " + myScore);
-
-                    if (player.getHand() != null && !player.getHand().isEmpty()) {
-                        for (CardDto card : player.getHand()) {
-                            addCardToHand(hboxUserCards, card, false);
-                        }
-                    }
-                } else {
-                    opponentScore = player.getScore();
-
-                    for (int i = 0; i < 2; i++) {
-                        addCardToHand(hboxOpponentCards, null, true);
-                    }
-                }
-            }
-        });
-
-        // Остальные обработчики остаются без изменений...
-        networkManager.setOnCardDealt(cardDealt -> {
-            if (cardDealt.isForCurrentPlayer()) {
-                addCardToHand(hboxUserCards, cardDealt.card(), false);
-            } else {
-                addCardToHand(hboxOpponentCards, null, true);
-            }
-        });
-
-        networkManager.setOnPlayerStood(playerId -> {
-            updateGameStatus();
-        });
-
-        networkManager.setOnGameOver(gameOver -> {
-            gameEnded = true;
-            changeButtonsDisabling(true);
-
-            // Показываем карты противника
-            hboxOpponentCards.getChildren().clear();
-            if (gameOver.finalState() != null) {
-                for (PlayerDto player : gameOver.finalState().getPlayers()) {
-                    if (!player.getId().equals(networkManager.getCurrentPlayer().getId())) {
-                        for (CardDto card : player.getHand()) {
-                            addCardToHand(hboxOpponentCards, card, false);
-                        }
-                        opponentScore = player.getScore();
-                    } else {
-                        myScore = player.getScore();
-                    }
-                }
-            }
-
-            showGameEndDialog(gameOver.didIWin(), gameOver.isDraw(), myScore, opponentScore);
-        });
-
-        networkManager.setOnInfo(info -> {
-            gameStatusLabel.setText(info);
-        });
-
-        networkManager.setOnError(error -> {
-            gameStatusLabel.setText("Ошибка: " + error);
-            gameStatusLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: #ff0000;");
-        });
-
-        networkManager.setOnConnectionChanged(status -> {
-            if (!status.connected() && isGameStarted) {
-                gameStatusLabel.setText("Соединение потеряно");
-                changeButtonsDisabling(true);
-            }
-        });
-    }
-
-    private void updateGameStatus() {
-        if (networkManager.isMyTurn()) {
-            gameStatusLabel.setText("Ваш ход");
-            gameStatusLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: #00ff00;");
-        } else {
-            gameStatusLabel.setText("Ход противника");
-            gameStatusLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: #ffff00;");
+    private void handleGameResult(Object result) {
+        if (result instanceof NetworkTwentyOneGame.GameResult(
+                boolean isPlayerWon, boolean isDraw, int playerScore, int opponentScore
+        )) {
+            showGameEndDialog(isPlayerWon, isDraw,
+                    playerScore, opponentScore);
+        } else if (result instanceof AITwentyOneGame.GameResult(
+                boolean isPlayerWon, boolean isDraw, int playerScore, int aiScore
+        )) {
+            showGameEndDialog(isPlayerWon, isDraw,
+                    playerScore, aiScore);
         }
-        changeButtonsDisabling(!networkManager.isMyTurn());
-    }
-
-    private void addCardToHand(HBox container, CardDto card, boolean showBack) {
-        ImageView cardImageView = new ImageView();
-        String imagePath;
-
-        if (showBack || card == null) {
-            imagePath = "/images/deck_green.png";
-        } else {
-            imagePath = card.getImagePath();
-        }
-
-        setupImage(cardImageView, container.getPrefHeight(), imagePath);
-        container.getChildren().add(cardImageView);
     }
 
     private void setupRootContainer() {
@@ -273,114 +126,31 @@ public class TwentyOneGameController implements Initializable {
         hboxUserCards.setPrefHeight(Size.DEFAULT_HBOX_HEIGHT);
     }
 
-    private void startGame() {
-        hboxUserCards.getChildren().clear();
-        hboxOpponentCards.getChildren().clear();
-        gameEnded = false;
-
-        deck = new Deck();
-
-        blackJackPlayer = new BlackJackPlayer(hboxUserCards, deck, totalScores);
-        blackJackAI = new BlackJackAI(hboxOpponentCards, deck, 50);
-
-        changeButtonsDisabling(false);
-        dealInitialCards();
-    }
-
-    private void dealInitialCards() {
-        blackJackPlayer.getCard();
-        blackJackAI.addCard(deck.getRandomCard(), true);
-    }
-
     @FXML
     private void onGetCardButtonClick(ActionEvent ignoredAction) {
         if (isNetworkMode) {
-            if (!gameEnded && networkManager.isMyTurn()) {
-                networkManager.hit();
-            }
+            networkGame.hit();
         } else {
-            if (!gameEnded) {
-                blackJackPlayer.getCard();
-
-                if (blackJackPlayer.isActive()) {
-                    blackJackAI.revealCards();
-                    endGame(false, false);
-                }
-            }
+            aiGame.hit();
         }
     }
 
     @FXML
     private void onStandButtonClick(ActionEvent ignoredAction) {
         if (isNetworkMode) {
-            if (!gameEnded && networkManager.isMyTurn()) {
-                networkManager.stand();
-            }
+            networkGame.stand();
         } else {
-            if (!gameEnded) {
-                blackJackPlayer.setActive(false);
-                changeButtonsDisabling(true);
-                aiTurn();
-            }
+            aiGame.stand();
         }
     }
 
     @FXML
     private void onDeckImageViewClicked(MouseEvent ignoredAction) {
         if (isNetworkMode) {
-            if (!gameEnded && networkManager.isMyTurn()) {
-                networkManager.hit();
-            }
+            networkGame.hit();
         } else {
-            if (!gameEnded) {
-                blackJackPlayer.getCard();
-
-                if (blackJackPlayer.isActive()) {
-                    endGame(false, false);
-                    blackJackAI.revealCards();
-                }
-            }
+            aiGame.hit();
         }
-    }
-
-    private void aiTurn() {
-        blackJackAI.collectAllCards();
-
-        Timeline timeline = new Timeline();
-        KeyFrame keyFrame = new KeyFrame(Duration.millis(100), event -> {
-            if (!blackJackAI.isRevealingCards() && blackJackAI.isActive()) {
-                timeline.stop();
-                Platform.runLater(this::determineWinner);
-            }
-        });
-
-        timeline.getKeyFrames().add(keyFrame);
-        timeline.setCycleCount(Timeline.INDEFINITE);
-        timeline.play();
-    }
-
-    private void determineWinner() {
-        int playerScore = blackJackPlayer.getScore();
-        int aiScore = blackJackAI.getScore();
-
-        boolean playerBust = playerScore > 21;
-        boolean aiBust = aiScore > 21;
-
-        if (playerBust) {
-            endGame(false, false);
-        } else if (aiBust) {
-            endGame(true, false);
-        } else if (playerScore > aiScore) {
-            endGame(true, false);
-        } else endGame(false, aiScore <= playerScore);
-    }
-
-    private void endGame(boolean isPlayerWins, boolean isDraw) {
-        gameEnded = true;
-        changeButtonsDisabling(true);
-        showGameEndDialog(isPlayerWins, isDraw,
-                isNetworkMode ? myScore : blackJackPlayer.getScore(),
-                isNetworkMode ? opponentScore : blackJackAI.getScore());
     }
 
     private void changeButtonsDisabling(boolean isNeedToDisable) {
@@ -397,7 +167,6 @@ public class TwentyOneGameController implements Initializable {
             Parent dialogRoot = loader.load();
 
             DialogController dialogController = loader.getController();
-
             dialogController.initData(isPlayerWon, isDraw, playerScore, dealerScore, dialogStage);
 
             Scene dialogScene = new Scene(dialogRoot);
@@ -407,8 +176,8 @@ public class TwentyOneGameController implements Initializable {
             dialogStage.initModality(Modality.APPLICATION_MODAL);
 
             dialogStage.setOnCloseRequest(e -> {
-                if (isNetworkMode && networkManager != null) {
-                    networkManager.disconnect();
+                if (isNetworkMode) {
+                    networkGame.disconnect();
                 }
             });
 
@@ -419,7 +188,7 @@ public class TwentyOneGameController implements Initializable {
                     // В сетевой игре возвращаемся в главное меню
                     returnToMainMenu();
                 } else {
-                    startGame();
+                    aiGame.startGame();
                 }
             } else {
                 returnToMainMenu();
@@ -432,8 +201,11 @@ public class TwentyOneGameController implements Initializable {
 
     private void returnToMainMenu() {
         try {
-            if (isNetworkMode && networkManager != null) {
-                networkManager.disconnect();
+            // Очищаем состояние игр
+            if (isNetworkMode) {
+                networkGame.reset();
+            } else {
+                aiGame.reset();
             }
 
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/layout/start-screen.fxml"));
@@ -454,7 +226,7 @@ public class TwentyOneGameController implements Initializable {
         if (!isNetworkMode) {
             boolean isModifierPressed = keyEvent.isMetaDown() || keyEvent.isControlDown();
             if (isModifierPressed && keyEvent.getCode() == KeyCode.R) {
-                startGame();
+                aiGame.startGame();
             }
         }
     }

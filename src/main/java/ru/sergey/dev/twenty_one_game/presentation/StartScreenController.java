@@ -17,7 +17,6 @@ import ru.sergey.dev.twenty_one_game.ui.Size;
 import java.io.IOException;
 import java.net.URL;
 import java.util.ResourceBundle;
-import java.util.concurrent.CompletableFuture;
 
 public class StartScreenController implements Initializable {
 
@@ -81,15 +80,12 @@ public class StartScreenController implements Initializable {
                 controller.connectToNetwork(playerName, dialog);
 
             } catch (IOException e) {
-                e.printStackTrace();
                 dialog.close();
                 showError("Ошибка при загрузке игрового экрана: " + e.getMessage());
             }
         });
 
-        dialog.setOnCancel(() -> {
-            System.out.println("Подключение отменено");
-        });
+        dialog.setOnCancel(() -> System.out.println("Подключение отменено"));
 
         dialog.show();
     }
