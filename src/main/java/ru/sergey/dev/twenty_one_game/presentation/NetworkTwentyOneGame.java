@@ -62,16 +62,16 @@ public class NetworkTwentyOneGame {
 
     private void setupNetworkLabels(AnchorPane apRoot) {
         opponentNameLabel = new Label("");
-        opponentNameLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #71ea71;");
+        opponentNameLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #71ea71;");
         opponentNameLabel.setVisible(false);
-        AnchorPane.setTopAnchor(opponentNameLabel, 5.0);
-        AnchorPane.setLeftAnchor(opponentNameLabel, hboxOpponentCards.getLayoutX());
+        AnchorPane.setTopAnchor(opponentNameLabel, 16.0); // Как в game-screen.fxml
+        AnchorPane.setLeftAnchor(opponentNameLabel, 24.0); // Фиксированное значение
 
         gameStatusLabel = new Label("");
         gameStatusLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: #71ea71;");
         gameStatusLabel.setVisible(false);
-        AnchorPane.setTopAnchor(gameStatusLabel, 30.0);
-        AnchorPane.setRightAnchor(gameStatusLabel, 10.0);
+        AnchorPane.setTopAnchor(gameStatusLabel, 16.0);
+        AnchorPane.setRightAnchor(gameStatusLabel, 200.0);
 
         apRoot.getChildren().addAll(opponentNameLabel, gameStatusLabel);
     }
@@ -198,10 +198,11 @@ public class NetworkTwentyOneGame {
             if (cardDealt.isForCurrentPlayer()) {
                 addCardToHand(hboxUserCards, cardDealt.card(), false);
                 myScore += cardDealt.card().getPrice();
-                totalScores.setText("Текущее количество очков: " + myScore);
+                updateScoreLabel(); // Вызываем здесь!
                 if (myScore > 21) {
-                    networkManager.stand();
-                    onButtonsStateChanged.accept(false);
+                    if (onButtonsStateChanged != null) {
+                        onButtonsStateChanged.accept(true);
+                    }
                 }
             } else {
                 addCardToHand(hboxOpponentCards, null, true);
@@ -294,7 +295,7 @@ public class NetworkTwentyOneGame {
             for (PlayerDto player : gameStateDto.getPlayers()) {
                 if (player.getId().equals(networkManager.getCurrentPlayer().getId())) {
                     myScore = player.getScore();
-                    totalScores.setText("Текущее количество очков: " + myScore);
+                    updateScoreLabel();
                     for (CardDto card : player.getHand()) {
                         addCardToHand(hboxUserCards, card, false);
                     }
@@ -304,6 +305,19 @@ public class NetworkTwentyOneGame {
                     }
                 }
             }
+        }
+    }
+
+    private void updateScoreLabel() {
+        totalScores.setText("Текущее количество очков: " + myScore);
+        if (myScore > 21) {
+            totalScores.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #ff0000;");
+            gameStatusLabel.setText("Перебор!");
+            gameStatusLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: #ff0000;");
+        } else if (myScore == 21) {
+            totalScores.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #00ff00;");
+        } else {
+            totalScores.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #71ea71;");
         }
     }
 

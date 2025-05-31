@@ -118,6 +118,11 @@ public class NetworkGameManager {
                 .thenRun(() -> client.joinGame(playerName))
                 .exceptionally(throwable -> {
                     System.err.println("Ошибка при подключении: " + throwable.getMessage());
+                    Platform.runLater(() -> {
+                        if (onError != null) {
+                            onError.accept("Не удалось подключиться к серверу. Проверьте соединение.");
+                        }
+                    });
                     throw new RuntimeException(throwable);
                 });
     }

@@ -30,24 +30,7 @@ public class DialogController {
             resultLabel.setStyle("-fx-text-fill: #ffaa00;"); // Оранжевый для ничьи
         }
 
-        scoreLabel.setText("Ваш счет: " + playerScore + " / Счет дилера: " + dealerScore);
-    }
-
-    // Для сетевой игры
-    public void initNetworkGameData(String result, String details, Stage dialogStage) {
-        this.dialogStage = dialogStage;
-
-        resultLabel.setText(result);
-
-        if (result.contains("выиграли")) {
-            resultLabel.setStyle("-fx-text-fill: #00ff00;"); // Зеленый для победы
-        } else if (result.contains("проиграли")) {
-            resultLabel.setStyle("-fx-text-fill: #ff4444;"); // Красный для поражения
-        } else {
-            resultLabel.setStyle("-fx-text-fill: #ffaa00;"); // Оранжевый для ничьи
-        }
-
-        scoreLabel.setText(details != null ? details : "Сетевая игра завершена");
+        scoreLabel.setText("Ваш счет: " + playerScore + " / Счет соперника: " + dealerScore);
     }
 
     @FXML

@@ -21,7 +21,6 @@ public class NetworkGameDialog {
     private final Label statusLabel;
     private final Label charCountLabel;
     private final ProgressIndicator progressIndicator;
-    private final VBox mainContainer;
 
     private String playerName;
     private boolean cancelled = false;
@@ -90,7 +89,7 @@ public class NetworkGameDialog {
         progressBox.getChildren().addAll(progressIndicator, statusLabel);
 
         // Главный контейнер
-        mainContainer = new VBox(15);
+        VBox mainContainer = new VBox(15);
         mainContainer.setAlignment(Pos.CENTER);
         mainContainer.setPadding(new Insets(30));
         mainContainer.setStyle("-fx-background-color: #006400;");
@@ -159,9 +158,7 @@ public class NetworkGameDialog {
     }
 
     public void updateStatus(String status) {
-        Platform.runLater(() -> {
-            statusLabel.setText(status);
-        });
+        Platform.runLater(() -> statusLabel.setText(status));
     }
 
     public void showError(String error) {
@@ -193,10 +190,6 @@ public class NetworkGameDialog {
     }
 
     public void close() {
-        Platform.runLater(() -> dialogStage.close());
-    }
-
-    public Stage getDialogStage() {
-        return dialogStage;
+        Platform.runLater(dialogStage::close);
     }
 }
